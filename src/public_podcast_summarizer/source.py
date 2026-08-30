@@ -40,27 +40,38 @@ def load_feed(
         raise SourceError("feed exceeds the byte limit")
     return payload
 
+DEFAULT_FEEDS: List[Dict[str, Any]] = [
+    {"url": "https://feeds.simplecast.com/qm_9xx0g", "name": "Huberman Lab", "max_episodes": 1},
+    {"url": "https://api.substack.com/feed/podcast/1084089.rss", "name": "Latent Space AI", "max_episodes": 1},
+    {"url": "https://feeds.simplecast.com/l2i9YnTd", "name": "Hard Fork Tech", "max_episodes": 1},
+]
+
+
 def load_feeds_from_config() -> List[Dict[str, Any]]:
-    """Parse PODCAST_CONFIG_JSON and return configured feeds."""
+    """Parse PODCAST_CONFIG_JSON and return configured feeds with sensible defaults."""
     config_json = os.environ.get("PODCAST_CONFIG_JSON")
     if not config_json:
-        return []
+        return list(DEFAULT_FEEDS)
     
     try:
         config = json.loads(config_json)
         # Handle simple array of strings (backwards compatibility)
         if isinstance(config, list):
+            if not config:
+                return list(DEFAULT_FEEDS)
             return [{"url": str(item), "name": str(item)} for item in config]
         
         # Handle dict format: {"feeds": [{"url": "...", "name": "..."}], "max_episodes": 5}
         if isinstance(config, dict):
             feeds = config.get("feeds", [])
+            if not feeds:
+                return list(DEFAULT_FEEDS)
             max_episodes = config.get("max_episodes", 1)
             for feed in feeds:
                 if "max_episodes" not in feed:
                     feed["max_episodes"] = max_episodes
             return feeds
             
-        return []
+        return list(DEFAULT_FEEDS)
     except json.JSONDecodeError:
-        return []
+        return list(DEFAULT_FEEDS)
