@@ -58,6 +58,14 @@ class SourceTests(unittest.TestCase):
             with self.subTest(payload=payload), self.assertRaises(SourceError):
                 load_feeds_from_config(payload)
 
+    def test_runtime_feed_can_require_expected_channel_identity(self):
+        feeds = load_feeds_from_config(
+            '{"feeds": [{"url": "https://example.test/feed.xml", '
+            '"expected_title": "Example Engineering Podcast"}]}'
+        )
+
+        self.assertEqual(feeds[0]["expected_title"], "Example Engineering Podcast")
+
 
 if __name__ == "__main__":
     unittest.main()

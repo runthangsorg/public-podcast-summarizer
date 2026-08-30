@@ -30,6 +30,7 @@ class RepositoryPolicyTests(unittest.TestCase):
         self.assertNotIn("pull_request:", production)
         self.assertNotIn("push:", production)
         self.assertNotIn("upload-artifact", production)
+        self.assertEqual(production.count("cron:"), 1)
 
     def test_public_tree_has_no_curated_subscription_defaults_or_pii(self):
         production = [ROOT / "README.md"]

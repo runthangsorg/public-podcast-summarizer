@@ -34,12 +34,27 @@ class FeedTests(unittest.TestCase):
         self.assertEqual(episodes[0].podcast, "Example Engineering Podcast")
         self.assertEqual(episodes[0].title, "Reliable queues")
         self.assertEqual(episodes[0].notes, "How bounded queues prevent overload.")
+        self.assertEqual(episodes[0].link_kind, "episode_page")
         self.assertNotIn("audio", episodes[0].to_public_dict())
         self.assertNotIn("media.example", str(episodes[0].to_public_dict()))
 
     def test_rejects_unbounded_episode_limits(self):
         with self.assertRaises(ValueError):
             parse_feed(SAMPLE_FEED, max_episodes=51)
+
+    def test_missing_episode_page_falls_back_to_publisher_show_page(self):
+        payload = b"""<rss><channel>
+        <title>Example Show</title>
+        <link>https://example.test/show</link>
+        <item><title>Episode without page</title><description>Notes.</description>
+        <enclosure url="https://media.example.test/private-audio.mp3" type="audio/mpeg"/>
+        </item></channel></rss>"""
+
+        episode = parse_feed(payload, max_episodes=1)[0]
+
+        self.assertEqual(episode.link, "https://example.test/show")
+        self.assertEqual(episode.link_kind, "show_page")
+        self.assertNotIn("media.example", str(episode.to_public_dict()))
 
 
 if __name__ == "__main__":

@@ -52,6 +52,7 @@ class Episode:
     published: str
     notes: str
     link: str
+    link_kind: str
 
     def to_public_dict(self) -> dict[str, str]:
         return {
@@ -60,6 +61,7 @@ class Episode:
             "published": self.published,
             "notes": self.notes,
             "link": self.link,
+            "link_kind": self.link_kind,
             "review_status": "publisher_metadata_only",
         }
 
@@ -77,6 +79,14 @@ def parse_feed(payload: bytes, *, max_episodes: int = 3) -> tuple[Episode, ...]:
         root,
     )
     podcast = _text(_child_text(channel, {"title"}), limit=160)
+    channel_link = _child_text(channel, {"link"})
+    if not channel_link:
+        for child in channel:
+            if _local_name(child.tag) == "link":
+                channel_link = child.attrib.get("href", "")
+                if channel_link:
+                    break
+    channel_link = _public_url(channel_link)
     candidates = [
         node for node in channel.iter() if _local_name(node.tag) in {"item", "entry"}
     ]
@@ -96,6 +106,12 @@ def parse_feed(payload: bytes, *, max_episodes: int = 3) -> tuple[Episode, ...]:
                     link = child.attrib.get("href", "")
                     if link:
                         break
+        episode_link = _public_url(link)
+        if episode_link:
+            link_kind = "episode_page"
+        else:
+            episode_link = channel_link
+            link_kind = "show_page" if channel_link else "unavailable"
         if title:
             episodes.append(
                 Episode(
@@ -103,7 +119,8 @@ def parse_feed(payload: bytes, *, max_episodes: int = 3) -> tuple[Episode, ...]:
                     title=title,
                     published=published,
                     notes=notes,
-                    link=_public_url(link),
+                    link=episode_link,
+                    link_kind=link_kind,
                 )
             )
     return tuple(episodes)

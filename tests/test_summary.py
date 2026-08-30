@@ -21,6 +21,16 @@ class SummaryTests(unittest.TestCase):
     def test_empty_notes_are_explicit(self):
         self.assertEqual(summarize_notes(""), ["No publisher notes were provided."])
 
+    def test_long_sentence_ends_at_word_boundary_with_ellipsis(self):
+        summary = summarize_notes(
+            "This publisher sentence contains several carefully chosen words and keeps going past the configured boundary.",
+            max_points=1,
+            max_chars=60,
+        )
+
+        self.assertTrue(summary[0].endswith("..."))
+        self.assertNotIn("caref...", summary[0])
+
 
 if __name__ == "__main__":
     unittest.main()

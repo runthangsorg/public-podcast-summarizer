@@ -44,6 +44,35 @@ class CliTests(unittest.TestCase):
         self.assertNotIn(item["title"], output.getvalue())
         self.assertNotIn(feeds[0]["name"], output.getvalue())
 
+    def test_mismatched_expected_channel_is_skipped_without_leaking_title(self):
+        episode = unittest.mock.Mock()
+        episode.podcast = "Unexpected Show"
+        episode.notes = "Publisher notes"
+        episode.to_public_dict.return_value = {
+            "podcast": "Unexpected Show",
+            "title": "Episode",
+            "notes": "Publisher notes",
+            "link": "https://example.test/episode",
+        }
+        output = io.StringIO()
+        feeds = [
+            {
+                "url": "https://example.test/feed.xml",
+                "expected_title": "Expected Show",
+            }
+        ]
+
+        with patch(
+            "public_podcast_summarizer.cli.load_feeds_from_config", return_value=feeds
+        ), patch("public_podcast_summarizer.cli.load_feed", return_value=b"<rss/>"), patch(
+            "public_podcast_summarizer.cli.parse_feed", return_value=(episode,)
+        ), contextlib.redirect_stdout(output):
+            with self.assertRaisesRegex(RuntimeError, "no configured feed yielded"):
+                main(["--config", "--dry-run"])
+
+        self.assertNotIn("Unexpected Show", output.getvalue())
+        self.assertNotIn("Expected Show", output.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

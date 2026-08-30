@@ -20,4 +20,11 @@ def summarize_notes(
     ]
     if not sentences:
         sentences = [clean]
-    return [sentence[:max_chars].rstrip() for sentence in sentences[:max_points]]
+    bounded = []
+    for sentence in sentences[:max_points]:
+        if len(sentence) <= max_chars:
+            bounded.append(sentence)
+            continue
+        prefix = sentence[: max_chars - 3].rsplit(" ", 1)[0].rstrip(" ,;:")
+        bounded.append((prefix or sentence[: max_chars - 3]).rstrip() + "...")
+    return bounded

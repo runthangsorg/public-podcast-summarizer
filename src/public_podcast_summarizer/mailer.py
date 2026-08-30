@@ -4,6 +4,7 @@ import smtplib
 import ssl
 from datetime import datetime, timezone
 from email.message import EmailMessage
+from email.utils import parsedate_to_datetime
 from typing import Any, List, Mapping
 
 
@@ -21,6 +22,21 @@ CATEGORY_EMOJIS = {
     "Philosophy & Thought": "🕌",
     "General Knowledge": "🎙️",
 }
+
+
+def _display_date(value: object) -> str:
+    """Render common RSS/Atom timestamps without noisy time-zone details."""
+    raw = str(value or "").strip()
+    if not raw:
+        return "Recent"
+    try:
+        parsed = parsedate_to_datetime(raw)
+    except (TypeError, ValueError, OverflowError):
+        try:
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except (TypeError, ValueError, OverflowError):
+            return raw
+    return parsed.strftime("%d %b %Y")
 
 
 def _build_html(items: List[Mapping[str, Any]]) -> str:
@@ -77,8 +93,9 @@ def _build_html(items: List[Mapping[str, Any]]) -> str:
         for item in cat_items:
             podcast_name = html.escape(str(item.get("podcast_name", item.get("podcast", "Podcast"))))
             title = html.escape(str(item.get("title", "Untitled Episode")))
-            published = html.escape(str(item.get("published", "Recent")))
+            published = html.escape(_display_date(item.get("published")))
             link = item.get("link", "")
+            link_kind = item.get("link_kind", "episode_page")
             
             summary_points = item.get("summary", [])
             summary_html = ""
@@ -86,7 +103,12 @@ def _build_html(items: List[Mapping[str, Any]]) -> str:
                 summary_html += f'<li style="margin-bottom: 8px; color: #c9d1d9; line-height: 1.6; font-size: 14px;">{html.escape(str(pt))}</li>'
             
             title_tag = f'<a href="{html.escape(link, quote=True)}" style="color: #58a6ff; text-decoration: none; font-weight: 700; font-size: 18px; line-height: 1.4;">{title}</a>' if link else f'<span style="color: #f0f6fc; font-size: 18px; font-weight: 700;">{title}</span>'
-            button_tag = f'<div style="margin-top: 18px;"><a href="{html.escape(link, quote=True)}" style="display: inline-block; background-color: #00ccaa; color: #010409; font-weight: 700; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-size: 13px;">🎧 Listen / View Episode</a></div>' if link else ''
+            button_label = (
+                "Open Publisher Show"
+                if link_kind == "show_page"
+                else "🎧 Listen / View Episode"
+            )
+            button_tag = f'<div style="margin-top: 18px;"><a href="{html.escape(link, quote=True)}" style="display: inline-block; background-color: #00ccaa; color: #010409; font-weight: 700; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-size: 13px;">{button_label}</a></div>' if link else ''
             
             episodes_html += f"""
             <article style="margin-bottom: 28px; background-color: #0d1117; border: 1px solid #30363d; border-radius: 12px; overflow: hidden;">
@@ -120,6 +142,8 @@ def _build_html(items: List[Mapping[str, Any]]) -> str:
             """
 
     current_date = datetime.now(timezone.utc).strftime("%A, %B %d, %Y")
+    feed_count = len(set(it.get("podcast_name", "") for it in items))
+    feed_label = "feed" if feed_count == 1 else "feeds"
     return f"""<!doctype html>
     <html>
     <head>
@@ -133,7 +157,7 @@ def _build_html(items: List[Mapping[str, Any]]) -> str:
                     🎙️ Podcast Intelligence Digest
                 </h1>
                 <p style="color: #8b949e; font-size: 14px; margin: 0;">
-                    {current_date} · {len(items)} episode(s) from {len(set(it.get("podcast_name", "") for it in items))} curated feeds
+                    {current_date} · {len(items)} episode(s) from {feed_count} curated {feed_label}
                 </p>
             </header>
             
@@ -169,7 +193,8 @@ def send_digest(items: List[Mapping[str, Any]], dry_run: bool = False) -> bool:
         if pub:
             plain_lines.append(f"   Published: {pub}")
         if link:
-            plain_lines.append(f"   Listen: {link}")
+            link_label = "Publisher show" if it.get("link_kind") == "show_page" else "Listen"
+            plain_lines.append(f"   {link_label}: {link}")
         for pt in it.get("summary", []):
             plain_lines.append(f"   - {pt}")
         plain_lines.append("")

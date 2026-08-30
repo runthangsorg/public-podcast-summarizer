@@ -3,7 +3,6 @@ name: podcast-digest
 on:
   schedule:
     - cron: "30 8 * * *"
-    - cron: "30 18 * * *"
   workflow_dispatch:
     inputs:
       dry_run:

@@ -113,19 +113,25 @@ def load_feeds_from_config(config_json: Optional[str] = None) -> List[Dict[str, 
             "name",
             "category",
             "max_episodes",
+            "expected_title",
         }:
             raise SourceError("podcast feed contains unknown fields")
         url = _feed_url(raw.get("url"))
-        feeds.append(
-            {
-                "url": url,
-                "name": _label(raw.get("name"), name="feed name", default=""),
-                "category": _label(
-                    raw.get("category"),
-                    name="feed category",
-                    default="General Knowledge",
-                ),
-                "max_episodes": _episode_limit(raw.get("max_episodes", default_limit)),
-            }
-        )
+        feed = {
+            "url": url,
+            "name": _label(raw.get("name"), name="feed name", default=""),
+            "category": _label(
+                raw.get("category"),
+                name="feed category",
+                default="General Knowledge",
+            ),
+            "max_episodes": _episode_limit(raw.get("max_episodes", default_limit)),
+        }
+        if raw.get("expected_title"):
+            feed["expected_title"] = _label(
+                raw.get("expected_title"),
+                name="expected channel title",
+                default="",
+            )
+        feeds.append(feed)
     return feeds
