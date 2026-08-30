@@ -1,0 +1,11 @@
+[project]
+name = "public-podcast-summarizer"
+version = "0.1.0"
+description = "Bounded podcast publisher-metadata summarizer"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = []
+
+[project.scripts]
+public-podcast-summarizer = "public_podcast_summarizer.cli:main"

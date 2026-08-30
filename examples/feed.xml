@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Example Engineering Podcast</title>
+    <item>
+      <guid>synthetic-episode-1</guid>
+      <title>Building bounded queues</title>
+      <pubDate>Tue, 02 Jan 2030 08:00:00 GMT</pubDate>
+      <description><![CDATA[
+        <p>Bounded queues protect services during traffic spikes.
+        Backpressure gives callers an explicit retry signal.
+        Operators should report dropped work.</p>
+      ]]></description>
+      <link>https://example.com/podcast/bounded-queues</link>
+    </item>
+  </channel>
+</rss>
