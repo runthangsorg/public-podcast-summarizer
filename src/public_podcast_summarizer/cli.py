@@ -38,12 +38,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             for episode in parse_feed(feed_data, max_episodes=max_ep):
                 item = episode.to_public_dict()
                 item["summary"] = summarize_notes(episode.notes)
-                # Ensure podcast name is included
-                item["podcast_name"] = feed_info.get("name", "Unknown Podcast")
+                # Resolve real podcast title: prefer XML channel title, then feed name, then fallback
+                xml_title = str(episode.podcast or "").strip()
+                configured_name = str(feed_info.get("name") or "").strip()
+                if xml_title and not xml_title.startswith("http"):
+                    item["podcast_name"] = xml_title
+                elif configured_name and not configured_name.startswith("http"):
+                    item["podcast_name"] = configured_name
+                else:
+                    item["podcast_name"] = "Podcast Episode"
+                    
+                item["category"] = feed_info.get("category", "General Knowledge")
                 item.pop("notes", None)
                 output.append(item)
         except Exception as e:
-            print(f"Error processing {feed_info.get('url')}: {e}")
+            print(f"Error processing {feed_info.get('name', feed_info.get('url'))}: {e}")
             continue
 
     print(json.dumps(output, indent=2, sort_keys=True))

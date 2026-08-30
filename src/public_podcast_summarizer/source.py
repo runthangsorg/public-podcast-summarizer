@@ -15,7 +15,7 @@ class SourceError(ValueError):
 
 
 def load_feed(
-    source: str, *, timeout: int = 15, max_bytes: int = 10_000_000
+    source: str, *, timeout: int = 20, max_bytes: int = 25_000_000
 ) -> bytes:
     parts = urlsplit(source)
     try:
@@ -24,7 +24,10 @@ def load_feed(
                 raise SourceError("only HTTP(S) feed URLs are supported")
             if parts.path.lower().endswith((".mp3", ".m4a", ".wav", ".mp4")):
                 raise SourceError("media downloads are not supported")
-            request = Request(source, headers={"User-Agent": "public-podcast-summarizer/1"})
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            }
+            request = Request(source, headers=headers)
             with urlopen(request, timeout=timeout) as response:
                 payload = response.read(max_bytes + 1)
         else:
@@ -41,9 +44,14 @@ def load_feed(
     return payload
 
 DEFAULT_FEEDS: List[Dict[str, Any]] = [
-    {"url": "https://feeds.simplecast.com/qm_9xx0g", "name": "Huberman Lab", "max_episodes": 1},
-    {"url": "https://api.substack.com/feed/podcast/1084089.rss", "name": "Latent Space AI", "max_episodes": 1},
-    {"url": "https://feeds.simplecast.com/l2i9YnTd", "name": "Hard Fork Tech", "max_episodes": 1},
+    {"url": "https://feeds.megaphone.fm/hubermanlab", "name": "Huberman Lab", "category": "Health & Science", "max_episodes": 1},
+    {"url": "https://lexfridman.com/feed/podcast/", "name": "Lex Fridman Podcast", "category": "AI & Deep Tech", "max_episodes": 1},
+    {"url": "https://changelog.com/podcast/feed", "name": "The Changelog", "category": "Engineering & Open Source", "max_episodes": 1},
+    {"url": "https://feeds.simplecast.com/_IjaDYAj", "name": "Deep Questions with Cal Newport", "category": "Focus & Productivity", "max_episodes": 1},
+    {"url": "https://api.substack.com/feed/podcast/10845.rss", "name": "Lenny's Podcast", "category": "Product & Growth", "max_episodes": 1},
+    {"url": "https://feeds.simplecast.com/Y8lFbOT4", "name": "Freakonomics Radio", "category": "Economics & Society", "max_episodes": 1},
+    {"url": "https://feeds.redcircle.com/1796d08e-0a31-412d-b3fd-a14a489365ce", "name": "Blogging Theology", "category": "Philosophy & Thought", "max_episodes": 1},
+    {"url": "https://api.substack.com/feed/podcast/1084089.rss", "name": "Latent Space AI", "category": "AI & Deep Tech", "max_episodes": 1},
 ]
 
 
