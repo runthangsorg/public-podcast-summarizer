@@ -15,7 +15,7 @@ class SourceError(ValueError):
 
 
 def load_feed(
-    source: str, *, timeout: int = 15, max_bytes: int = 2_000_000
+    source: str, *, timeout: int = 15, max_bytes: int = 10_000_000
 ) -> bytes:
     parts = urlsplit(source)
     try:
