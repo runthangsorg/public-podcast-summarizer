@@ -1,9 +1,14 @@
 import html
 import os
 import smtplib
+import ssl
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from typing import Any, List, Mapping
+
+
+class MailConfigError(RuntimeError):
+    """Raised when a live delivery cannot be configured safely."""
 
 
 CATEGORY_EMOJIS = {
@@ -144,7 +149,7 @@ def _build_html(items: List[Mapping[str, Any]]) -> str:
     </html>"""
 
 
-def send_digest(items: List[Mapping[str, Any]], dry_run: bool = False) -> None:
+def send_digest(items: List[Mapping[str, Any]], dry_run: bool = False) -> bool:
     """Send the HTML digest via SMTP with plaintext fallback."""
     host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
     port = int(os.environ.get("SMTP_PORT", 587))
@@ -171,15 +176,10 @@ def send_digest(items: List[Mapping[str, Any]], dry_run: bool = False) -> None:
     plain_content = "\n".join(plain_lines)
     
     if dry_run:
-        print("--- DRY RUN: Would send email ---")
-        print(f"Recipient: {recipient}")
-        print(f"Subject: 🎙️ Podcast Digest: {len(items)} Episode(s)")
-        print(plain_content)
-        return
+        return False
         
     if not all([host, port, user, password, recipient]):
-        print("Warning: Missing SMTP credentials. Skipping email delivery.")
-        return
+        raise MailConfigError("SMTP delivery configuration is incomplete")
         
     msg = EmailMessage()
     msg["Subject"] = f"🎙️ Podcast Digest: {len(items)} Episode(s) Summary"
@@ -189,7 +189,7 @@ def send_digest(items: List[Mapping[str, Any]], dry_run: bool = False) -> None:
     msg.add_alternative(html_content, subtype="html")
     
     with smtplib.SMTP(host, port) as server:
-        server.starttls()
+        server.starttls(context=ssl.create_default_context())
         server.login(user, password)
         server.send_message(msg)
-    print(f"Podcast digest email successfully sent to {recipient}")
+    return True

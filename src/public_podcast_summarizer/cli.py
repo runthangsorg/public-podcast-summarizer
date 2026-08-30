@@ -25,6 +25,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     output = []
+    feed_errors = 0
     
     if args.config:
         feeds = load_feeds_from_config()
@@ -51,14 +52,28 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 item["category"] = feed_info.get("category", "General Knowledge")
                 item.pop("notes", None)
                 output.append(item)
-        except Exception as e:
-            print(f"Error processing {feed_info.get('name', feed_info.get('url'))}: {e}")
+        except Exception:
+            feed_errors += 1
             continue
 
-    print(json.dumps(output, indent=2, sort_keys=True))
-    
+    email_sent = False
     if args.config or args.dry_run:
-        send_digest(output, dry_run=args.dry_run)
+        email_sent = send_digest(output, dry_run=args.dry_run)
+
+    if args.config or args.dry_run:
+        print(
+            json.dumps(
+                {
+                    "dry_run": args.dry_run,
+                    "email_sent": email_sent,
+                    "episode_count": len(output),
+                    "feed_errors": feed_errors,
+                },
+                sort_keys=True,
+            )
+        )
+    else:
+        print(json.dumps(output, indent=2, sort_keys=True))
         
     return 0
 

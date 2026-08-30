@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
-from typing import List, Dict, Any
+from typing import Any, Dict, List, Optional
 
 
 class SourceError(ValueError):
@@ -43,43 +43,89 @@ def load_feed(
         raise SourceError("feed exceeds the byte limit")
     return payload
 
-DEFAULT_FEEDS: List[Dict[str, Any]] = [
-    {"url": "https://feeds.megaphone.fm/hubermanlab", "name": "Huberman Lab", "category": "Health & Science", "max_episodes": 1},
-    {"url": "https://lexfridman.com/feed/podcast/", "name": "Lex Fridman Podcast", "category": "AI & Deep Tech", "max_episodes": 1},
-    {"url": "https://changelog.com/podcast/feed", "name": "The Changelog", "category": "Engineering & Open Source", "max_episodes": 1},
-    {"url": "https://feeds.simplecast.com/_IjaDYAj", "name": "Deep Questions with Cal Newport", "category": "Focus & Productivity", "max_episodes": 1},
-    {"url": "https://api.substack.com/feed/podcast/10845.rss", "name": "Lenny's Podcast", "category": "Product & Growth", "max_episodes": 1},
-    {"url": "https://feeds.simplecast.com/Y8lFbOT4", "name": "Freakonomics Radio", "category": "Economics & Society", "max_episodes": 1},
-    {"url": "https://feeds.redcircle.com/1796d08e-0a31-412d-b3fd-a14a489365ce", "name": "Blogging Theology", "category": "Philosophy & Thought", "max_episodes": 1},
-    {"url": "https://api.substack.com/feed/podcast/1084089.rss", "name": "Latent Space AI", "category": "AI & Deep Tech", "max_episodes": 1},
-]
+def _feed_url(value: Any) -> str:
+    url = str(value or "").strip()
+    parts = urlsplit(url)
+    if parts.scheme not in {"http", "https"} or not parts.netloc:
+        raise SourceError("feed URL must be public HTTP(S)")
+    if parts.path.lower().endswith((".mp3", ".m4a", ".wav", ".mp4")):
+        raise SourceError("media downloads are not supported")
+    return url
 
 
-def load_feeds_from_config() -> List[Dict[str, Any]]:
-    """Parse PODCAST_CONFIG_JSON and return configured feeds with sensible defaults."""
-    config_json = os.environ.get("PODCAST_CONFIG_JSON")
-    if not config_json:
-        return list(DEFAULT_FEEDS)
-    
+def _label(value: Any, *, name: str, default: str) -> str:
+    label = " ".join(str(value or default).split())
+    if not label and not default:
+        return ""
+    if not 1 <= len(label) <= 160:
+        raise SourceError(f"{name} is out of bounds")
+    return label
+
+
+def _episode_limit(value: Any) -> int:
+    try:
+        limit = int(value)
+    except (TypeError, ValueError) as exc:
+        raise SourceError("max_episodes must be an integer") from exc
+    if not 1 <= limit <= 10:
+        raise SourceError("max_episodes must be between 1 and 10")
+    return limit
+
+
+def load_feeds_from_config(config_json: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Parse strict runtime-only feed configuration without public defaults."""
+    if config_json is None:
+        config_json = os.environ.get("PODCAST_CONFIG_JSON")
+    if not config_json or len(config_json.encode("utf-8")) > 64_000:
+        raise SourceError("podcast configuration is empty or oversized")
     try:
         config = json.loads(config_json)
-        # Handle simple array of strings (backwards compatibility)
-        if isinstance(config, list):
-            if not config:
-                return list(DEFAULT_FEEDS)
-            return [{"url": str(item), "name": str(item)} for item in config]
-        
-        # Handle dict format: {"feeds": [{"url": "...", "name": "..."}], "max_episodes": 5}
-        if isinstance(config, dict):
-            feeds = config.get("feeds", [])
-            if not feeds:
-                return list(DEFAULT_FEEDS)
-            max_episodes = config.get("max_episodes", 1)
-            for feed in feeds:
-                if "max_episodes" not in feed:
-                    feed["max_episodes"] = max_episodes
-            return feeds
-            
-        return list(DEFAULT_FEEDS)
-    except json.JSONDecodeError:
-        return list(DEFAULT_FEEDS)
+    except json.JSONDecodeError as exc:
+        raise SourceError("podcast configuration is not valid JSON") from exc
+
+    default_limit = 1
+    if isinstance(config, list):
+        raw_feeds = config
+    elif isinstance(config, dict):
+        if set(config) - {"feeds", "max_episodes"}:
+            raise SourceError("podcast configuration contains unknown fields")
+        raw_feeds = config.get("feeds")
+        default_limit = _episode_limit(config.get("max_episodes", 1))
+    else:
+        raise SourceError("podcast configuration must contain a feed list")
+    if not isinstance(raw_feeds, list) or not 1 <= len(raw_feeds) <= 20:
+        raise SourceError("podcast configuration must contain 1-20 feeds")
+
+    feeds: List[Dict[str, Any]] = []
+    for raw in raw_feeds:
+        if isinstance(raw, str):
+            feeds.append(
+                {
+                    "url": _feed_url(raw),
+                    "name": "",
+                    "category": "General Knowledge",
+                    "max_episodes": default_limit,
+                }
+            )
+            continue
+        if not isinstance(raw, dict) or set(raw) - {
+            "url",
+            "name",
+            "category",
+            "max_episodes",
+        }:
+            raise SourceError("podcast feed contains unknown fields")
+        url = _feed_url(raw.get("url"))
+        feeds.append(
+            {
+                "url": url,
+                "name": _label(raw.get("name"), name="feed name", default=""),
+                "category": _label(
+                    raw.get("category"),
+                    name="feed category",
+                    default="General Knowledge",
+                ),
+                "max_episodes": _episode_limit(raw.get("max_episodes", default_limit)),
+            }
+        )
+    return feeds

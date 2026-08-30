@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+import re
 
 
 ROOT = Path(__file__).parents[1]
@@ -16,6 +17,34 @@ class RepositoryPolicyTests(unittest.TestCase):
         self.assertNotIn("secrets.", workflow)
         self.assertNotIn("upload-artifact", workflow)
         self.assertNotIn("contents: write", workflow)
+
+    def test_ci_is_event_driven_and_production_dispatch_is_safe_by_default(self):
+        ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        production = (ROOT / ".github/workflows/podcast-digest.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertNotIn("schedule:", ci)
+        self.assertNotIn("secrets.", ci)
+        self.assertIn("default: true", production)
+        self.assertNotIn("pull_request:", production)
+        self.assertNotIn("push:", production)
+        self.assertNotIn("upload-artifact", production)
+
+    def test_public_tree_has_no_curated_subscription_defaults_or_pii(self):
+        production = [ROOT / "README.md"]
+        production += list((ROOT / "src").rglob("*.py"))
+        production += list((ROOT / ".github/workflows").glob("*.yml"))
+        source = (ROOT / "src/public_podcast_summarizer/source.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("DEFAULT_FEEDS", source)
+        for path in production:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            self.assertIsNone(
+                re.search(r"[a-z0-9._%+-]+@(?!example\.test)[a-z0-9.-]+\.[a-z]{2,}", text, re.I),
+                str(path.relative_to(ROOT)),
+            )
 
 
 if __name__ == "__main__":
