@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
+from typing import List, Dict, Any
 
 
 class SourceError(ValueError):
@@ -36,3 +39,28 @@ def load_feed(
     if len(payload) > max_bytes:
         raise SourceError("feed exceeds the byte limit")
     return payload
+
+def load_feeds_from_config() -> List[Dict[str, Any]]:
+    """Parse PODCAST_CONFIG_JSON and return configured feeds."""
+    config_json = os.environ.get("PODCAST_CONFIG_JSON")
+    if not config_json:
+        return []
+    
+    try:
+        config = json.loads(config_json)
+        # Handle simple array of strings (backwards compatibility)
+        if isinstance(config, list):
+            return [{"url": str(item), "name": str(item)} for item in config]
+        
+        # Handle dict format: {"feeds": [{"url": "...", "name": "..."}], "max_episodes": 5}
+        if isinstance(config, dict):
+            feeds = config.get("feeds", [])
+            max_episodes = config.get("max_episodes", 1)
+            for feed in feeds:
+                if "max_episodes" not in feed:
+                    feed["max_episodes"] = max_episodes
+            return feeds
+            
+        return []
+    except json.JSONDecodeError:
+        return []
