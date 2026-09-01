@@ -3,11 +3,28 @@
 from __future__ import annotations
 
 import json
+import ipaddress
 import os
 from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 from typing import Any, Dict, List, Optional
+
+
+def _safe_public_url(value: Any) -> bool:
+    parts = urlsplit(str(value or "").strip())
+    if parts.scheme not in {"http", "https"} or not parts.netloc:
+        return False
+    if parts.username or parts.password or not parts.hostname:
+        return False
+    hostname = parts.hostname.lower().rstrip(".")
+    if hostname == "localhost" or hostname.endswith(".local"):
+        return False
+    try:
+        address = ipaddress.ip_address(hostname)
+    except ValueError:
+        return True
+    return address.is_global
 
 
 class SourceError(ValueError):
@@ -20,7 +37,7 @@ def load_feed(
     parts = urlsplit(source)
     try:
         if parts.scheme:
-            if parts.scheme not in {"http", "https"} or not parts.netloc:
+            if not _safe_public_url(source):
                 raise SourceError("only HTTP(S) feed URLs are supported")
             if parts.path.lower().endswith((".mp3", ".m4a", ".wav", ".mp4")):
                 raise SourceError("media downloads are not supported")
@@ -46,7 +63,7 @@ def load_feed(
 def _feed_url(value: Any) -> str:
     url = str(value or "").strip()
     parts = urlsplit(url)
-    if parts.scheme not in {"http", "https"} or not parts.netloc:
+    if not _safe_public_url(url):
         raise SourceError("feed URL must be public HTTP(S)")
     if parts.path.lower().endswith((".mp3", ".m4a", ".wav", ".mp4")):
         raise SourceError("media downloads are not supported")

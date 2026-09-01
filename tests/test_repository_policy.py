@@ -31,6 +31,12 @@ class RepositoryPolicyTests(unittest.TestCase):
         self.assertNotIn("push:", production)
         self.assertNotIn("upload-artifact", production)
         self.assertEqual(production.count("cron:"), 1)
+        self.assertNotIn(
+            "    env:\n      PYTHONPATH: src\n      PODCAST_CONFIG_JSON:",
+            production,
+        )
+        self.assertEqual(production.count("PODCAST_CONFIG_JSON:"), 1)
+        self.assertLess(production.index("Run safety tests"), production.index("PODCAST_CONFIG_JSON:"))
 
     def test_public_tree_has_no_curated_subscription_defaults_or_pii(self):
         production = [ROOT / "README.md"]

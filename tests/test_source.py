@@ -35,7 +35,7 @@ class SourceTests(unittest.TestCase):
             '{"max_episodes": 2, "feeds": ['
             '{"url": "https://example.test/feed.xml", "name": "Example", '
             '"category": "Engineering"}]}'
-        )
+            )
 
         self.assertEqual(
             feeds,
@@ -48,6 +48,15 @@ class SourceTests(unittest.TestCase):
                 }
             ],
         )
+
+    def test_rejects_private_hosts_and_url_credentials(self):
+        for value in (
+            "http://127.0.0.1/feed.xml",
+            "https://localhost/feed.xml",
+            "https://user:pass@example.test/feed.xml",
+        ):
+            with self.subTest(value=value), self.assertRaises(SourceError):
+                load_feed(value)
 
     def test_runtime_feed_config_rejects_media_and_unknown_fields(self):
         for payload in (
